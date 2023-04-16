@@ -1,0 +1,9 @@
+"0","dados |>  group_by(Customer_ID,Customer_Name,Region) |> summarise(Gasto=sum(Sales)) |> arrange(desc(Gasto)) |> head(10) |> "
+"0"," ggplot()+"
+"0"," geom_col(aes(x=reorder(Customer_Name,Gasto),"
+"0","              y=Gasto,"
+"0","              fill=Region)) +"
+"0","coord_flip()"
+"1","[38;5;255m`summarise()` has grouped output by 'Customer_ID', 'Customer_Name'. You can override using the
+`.groups` argument.[39m
+"

@@ -1,0 +1,7 @@
+"0","dados |>"
+"0"," group_by(Region) |>"
+"0"," summarise(media=mean(Sales)) |> "
+"0"," arrange(desc(media)) |> "
+"0"," ggplot(aes(x=Region, y=media,fill=Region)) +"
+"0"," geom_col() + "
+"0"," geom_hline(yintercept = media_nacional, col='navyblue',lwd=1) "

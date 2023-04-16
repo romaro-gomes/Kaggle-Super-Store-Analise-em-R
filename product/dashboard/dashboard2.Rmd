@@ -1,0 +1,100 @@
+---
+title: " SuperStore- Kaggle"
+output: 
+  flexdashboard::flex_dashboard:
+    orientation: rows
+    theme: 'yeti'
+
+---
+
+```{r setup, include=FALSE}
+library(flexdashboard)
+library(here)
+library(tidyverse)
+library(RColorBrewer)
+library(plotly)
+library(bslib)
+library(lubridate)
+library(treemap)
+```
+
+
+```{r include=FALSE}
+dados=readRDS(here('code','dados'))
+
+dados$Ship_Date=as.Date(dados$Ship_Date)
+
+dados= dados %>%  mutate(mes=lubridate::month(Ship_Date,label=T),
+                ano = lubridate::year(Ship_Date),
+                dia=lubridate::day(Ship_Date))
+
+
+```
+
+
+```{r include=FALSE}
+media_nacional=dados |>  group_by(Country) |> summarise(media=mean(Sales)) %>% .[[2]]
+arvore <- function(x, titulo = "") {
+  table(x) %>%
+    as.data.frame() %>%
+    treemap("x", "Freq", title = titulo, fontfamily.title = "serif", fontsize.title = 24)
+}
+
+pizza <- function(x) {
+  tabela <- table(x)
+  tabela <- tabela[order(tabela)]
+  prop_tabela <- prop.table(tabela) * 100
+  pie(tabela, labels = paste(round(prop_tabela,2), "%"), col = brewer.pal(n = names(tabela),
+    name = "Set1"), clockwise = T)
+  legend("bottomleft", legend = names(tabela), fill = brewer.pal(n = names(tabela),
+    name = "Set1"),bty='n')
+
+}
+```
+
+
+
+##  2 {data-height=400}
+
+### Tipos de Entrega
+```{r}
+pizza(dados$Ship_Mode)
+```
+
+### Segmentos
+```{r}
+arvore(dados$Segment, "Tipos de Segmentos")
+```
+
+
+## 1 { data-height=600}
+
+### Venda Por Região 
+```{r}
+
+a= dados |>
+ group_by(Region) |>
+ summarise(vendas=sum(Sales)) |> 
+ ggplot(aes(x=reorder(Region,desc(vendas)), y=vendas)) +
+ geom_col(fill='red') +
+  labs(x='',y='Total de Vendas')
+ 
+ggplotly(a)
+```
+
+
+### Media de Lucro por Estado
+```{r}
+b= dados |> 
+ group_by(State,Region) |>
+ summarise(media=mean(Sales)) |> 
+ ggplot(aes(x=reorder(State, media), y=media,fill=Region)) +
+ geom_col() + 
+ coord_flip()+
+facet_wrap(Region~.,scales='free')+
+  labs(x='',y='') +
+  theme(legend.position = "none")
+
+ggplotly(b)
+```
+

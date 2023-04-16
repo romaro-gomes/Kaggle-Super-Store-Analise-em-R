@@ -1,0 +1,14 @@
+"0","dados |> "
+"0"," group_by(Region,State) |>"
+"0"," summarise(lucro=mean(Profit)) |> "
+"0"," ggplot(aes(x=reorder(State, lucro), y=lucro,fill=Region)) +"
+"0"," geom_col() + "
+"0"," coord_flip()+"
+"0"," labs(y='Estados',x='Lucro')+"
+"0"," #facet_grid(.~Region)"
+"0"," facet_grid(Region~.,scales='free') +"
+"0"," theme(legend.position = ""none"") +"
+"0"," geom_hline(yintercept=media_nacional_lucro, color=""black"", size=1,show.legend =""Media Nacional"") "
+"1","[38;5;255m`summarise()` has grouped output by 'Region'. You can override
+using the `.groups` argument.[39m
+"

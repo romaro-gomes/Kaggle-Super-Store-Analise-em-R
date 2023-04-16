@@ -1,0 +1,58 @@
+---
+title: "Untitled"
+output: 
+  flexdashboard::flex_dashboard:
+    orientation: columns
+    vertical_layout: fill
+runtime: shiny
+---
+
+```{r setup, include=FALSE}
+library(flexdashboard)
+library(tidyverse)
+library(plotly)
+```
+
+
+## Seleção {.sidebar}
+
+```{r}
+#selectInput('dado',label='Selecione uma coluna', choice= dados |> select(where(is.factor)) |> colnames())
+selectInput('dado',label='Selecione uma coluna', choice=list(Versicolor='versicolor',Setosa='setosa',Virginica='virginica','todas') )
+```
+
+Column {data-width=350}
+-----------------------------------------------------------------------
+
+### Chart B
+
+```{r}
+
+coluna<- reactive({ if(input$dado == 'todas'){
+  iris |> group_by(Species)
+} else {
+   iris |> group_by(Species) |> filter(Species==input$dado)
+ }
+
+})
+ 
+
+renderPlot({
+g=coluna() |> 
+ summarise(media=sum(Sepal.Length)) |> 
+ ggplot(aes(x=Species, y=media,fill=Species)) +
+ geom_col() +
+ labs(title=paste0('Média de Vendas' , y='',x=''))
+
+g
+})
+
+
+```
+
+### Chart C
+
+```{r}
+
+```
+

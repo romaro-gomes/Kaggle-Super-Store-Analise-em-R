@@ -1,0 +1,254 @@
+---
+title: "Kaggle_SuperStore"
+author: "Romario José Gomes"
+date: '2022-07-21'
+output:
+ html_document:
+  code_folding: hide
+  toc: true
+  toc_float:
+   collapsed: true
+   smooth_scroll: true
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(
+   warning=FALSE, message=FALSE,  tidy=TRUE,	tidy.opts=list(arrow=TRUE,	indent=2),fig.width = 10, fig.align = 'center', fig.asp=0.618, out.width = '100%')
+```
+
+
+# Introdução
+Superstore, além de um excelente [seriado](https://cinepop.com.br/superstore-showrunners-revelam-como-o-cancelamento-impactou-a-trama-da-6a-temporada-289254/), são grandes lojas que vendem uma variedade e produtos. Sejam eles alimentos, roupas, eletrodomésticos. Esse número maior de opções é a [diferença entre os supermarket](https://thegrocerystoreguy.com/whats-the-difference-between-a-grocery-store-a-supermarket/).
+
+O termo superstore é americano, acredito que aqui no Brasil o mais próximo são os [hipermercados](https://pt.wikipedia.org/wiki/Hipermercado), como o antigo Extra.
+
+O dados usados foram retirados do [Kaggle](https://www.kaggle.com/datasets/vivek468/superstore-dataset-final), disponibilizado por [Vivek Chowdhury](https://www.kaggle.com/vivek468)
+
+
+
+# Bibliotecas
+
+```{r biliotecas}
+library(here)
+library(tidyverse)
+library(caret)
+library(factoextra)
+library(cluster)
+library(janitor)
+library(Hmisc)
+library(skimr)
+library(treemap)
+library(RColorBrewer)
+library(flextable)
+library(lubridate)
+library(RVAideMemoire)
+library(car)
+library(rstatix)
+```
+
+# Os Dados
+
+```{r impotando, include=FALSE}
+load(here('code','inicio'))
+dados$Order_Date=as.Date(dados$Order_Date)
+dados$Ship_Date=as.Date(dados$Ship_Date)
+media_nacional_lucro=dados |>  group_by(Country) |> summarise(media=mean(Profit))%>% .[[2]]
+
+
+arvore <- function(x, titulo = "") {
+  table(x) %>%
+    as.data.frame() %>%
+    treemap("x", "Freq", title = titulo, fontfamily.title = "serif", fontsize.title = 24)
+}
+
+pizza <- function(x) {
+  tabela <- table(x)
+  tabela <- tabela[order(tabela)]
+  prop_tabela <- prop.table(tabela) * 100
+  pie(tabela, labels = paste(round(prop_tabela,2), "%"), col = brewer.pal(n = names(tabela),
+    name = "Set1"), clockwise = T)
+  legend("bottomleft", legend = names(tabela), fill = brewer.pal(n = names(tabela),
+    name = "Set1",bty = "n"))
+
+}
+```
+```{r}
+head(dados) %>% flextable()
+```
+
+# As Regiões
+
+É interessante para uma rede de hipermercados saber onde há um maior número de clientes e quanto eles gastam em média, para assim ajudar na orientação de investimento de infraestrutura e marketing.
+
+
+```{r}
+dados |> 
+ group_by(Region) |>
+ distinct(Customer_ID) |> 
+ group_by(Região=Region) |> 
+ summarise(`N.Clientes`=n_distinct(Customer_ID)) |> 
+ flextable() |> 
+  align(align = "center", part = "all") |> 
+   line_spacing(space = 2, part = "all") 
+ 
+```
+
+```{r}
+dados |>
+ group_by(Region) |>
+ summarise(media=mean(Sales)) |> 
+ arrange(desc(media)) |> 
+ ggplot(aes(x=Region, y=media,fill=Region)) +
+ geom_col() + 
+ labs(y='Média',x='', title = 'Média de Vendas Por Região')+
+ theme(legend.position = "none")
+ 
+```
+
+Aparentemente não há muita diferença entre o número de clientes e de vendas entre as regiões.
+
+# Os Estados.
+
+Será que há estados que dão mais lucros do que outros? Acredito que mesmo nos Estados Unidos tenham diferenças entre padrão de consumo, poder aquisitivo e preço ao longo do país.
+
+
+```{r}
+dados |> 
+ group_by(Region,State) |>
+ summarise(lucro=mean(Profit)) |> 
+ ggplot(aes(x=reorder(State, lucro), y=lucro,fill=Region)) +
+ geom_col() + 
+ coord_flip()+
+ labs(y='Estados',x='Lucro',title = 'Lucro por Estado')+
+ #facet_grid(.~Region)
+ facet_grid(Region~.,scales='free') +
+ theme(legend.position = "none") +
+ geom_hline(yintercept=media_nacional_lucro, color="black", size=1,show.legend ="Media Nacional") 
+ 
+```
+A linha é preta é a média nacional do lucro, avaliada em 28.6569
+
+O gráfico não só expõe os estados com maior lucro, como também com com prejuízos.
+
+Bem, todas as lojas que dão lucro estão acima da média.
+
+Será que vale a pena manter estas lojas com valores negativos?
+
+# Clientes
+
+Quais os clientes que mais gastaram no hipermercado.
+
+
+```{r}
+dados |>  group_by(Customer_ID,Customer_Name,Region) |> summarise(Gasto=sum(Sales)) |> arrange(desc(Gasto)) |> head(10) |> 
+ ggplot()+
+ geom_col(aes(x=reorder(Customer_ID,Gasto),
+              y=Gasto,
+              fill=Region)) +
+ labs(x='Consumidor',y='Gasto',title = 'Maiores consumidores') +
+coord_flip()
+
+dados |>
+ group_by(Region,Customer_ID,Customer_Name) |> 
+ summarise(Gasto=sum(Sales)) |>
+ arrange(desc(Gasto)) |>
+ head(10) |> 
+ ggplot()+
+ geom_col(aes(x=Region,
+              y=Gasto,
+              fill=Region)) +
+labs(x='Regão',y='Gasto', title = 'Região dos Maiores Consumidores') +
+theme(legend.position = "none")
+ 
+
+
+```
+Apesar do cliente com mais gastos ser da região Sul, a região com mais clientes no top 10 é a central e a leste.
+
+# Testes estatísticos
+
+Os códigos usados foram inspirados nas vídeo-aulas de [Fernandas Peres](https://www.youtube.com/c/FernandaPeres).
+
+Ela faz um excelente trabalho de ensino em estatística gratuito no youtube.
+
+Recomendo o canal.
+
+## Será que o lucro médio por região é diferente?
+
+Primeiro iremos testar a normalidade dos dados
+
+```{r}
+byf.shapiro(Profit~Region, dados)
+```
+E a homogeneidade na variação [Homoscedasticidade](https://estatistica.pt/homoscedasticidade/) dos dados:
+```{r}
+leveneTest(Profit~Region, dados, center=mean)
+```
+
+Como resultados vemos que as distribuição dos dados não é normal e que a variedade dos dados não é homogênea, pois, em ambos os testes, de shapiro-wilk e levene, a hipótese nula é de  homogenia.
+
+Como temos mais de uma classificação para a Região, mais de um grupo, iremos fazer um teste de Kruskal-Wallis, um teste não-paramétrico.
+
+Assim, saberemos se há diferença entre as medianas dos grupos.
+
+
+```{r}
+kruskal.test(Profit~Region, dados)
+```
+
+
+Considerando um p<0.05 como significativo, podemos concluir que pelo menos um grupo tem mediana diferentes dos outros.
+
+O teste de Dunn, nos permite comparar as medianas entre os grupos e verificar onde essa diferença ocorre.
+
+```{r}
+dunn_test(Profit~Region,data=dados,p.adjust.method = "bonferroni")
+```
+
+As únicas regiões cujas medianas não são diferentes são a região Sul e Leste.
+
+## Pra quê isso serve?
+
+Os testes de hipóteses nos ajudam a melhor interpretar tabelas e gráficos. Isto melhora a nossa tomada de decisões, pois torna menos subjetivo nosso entendimento dos dados.
+
+
+```{r}
+dados |> group_by(Region) |> 
+ get_summary_stats(Profit,type='median_iqr') |> 
+   flextable() |> 
+  set_header_labels(Region='Região',variable='Variavél',n='Quantidade',median='Mediana',iqr='IIQ')
+```
+
+```{r}
+dados |> 
+ ggplot()+
+ geom_boxplot(aes(x=Region,
+              y=Profit,
+              fill=Region)) +
+labs(x='Regão',y='Lucro', title = 'Lucro por Região',subtitle = 'Variação quase imperceptivel') +
+  theme(legend.position = "none")
+ 
+```
+
+
+```{r}
+dados |> 
+ ggplot()+
+ geom_boxplot(aes(x=Region,
+              y=Profit,
+              fill=Region)) +
+labs(x='Regão',y='Lucro', title = 'Distribuição dos Lucro por Região') +
+  scale_y_continuous(limits = quantile(dados$Profit, c(0.1, 0.9))) +
+theme(legend.position = "none")
+ 
+```
+
+
+# Conclusão
+
+Esse rápido relatório mostra que há uma diferença nos lucros adquiridos pelo hipermercado (superstore), dependendo da região que ele se localiza.
+
+Espera-se que ele sirva de consulta para futuras decisões de negócio da empresa.
+
+# Dashboard Simples
+[LINK](https://dashboard-superstore-romario.netlify.app/)
